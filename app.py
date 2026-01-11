@@ -173,6 +173,10 @@ def logout():
 @app.route('/')
 @login_required
 def index():
+    # Regular users go directly to output dashboard (view-only)
+    if session.get('role') != 'admin':
+        return redirect(url_for('output_dashboard'))
+    # Admins see the home page
     return render_template('home.html', user=session)
 
 @app.route('/dashboard/input', methods=['GET', 'POST'])
@@ -565,7 +569,10 @@ def output_dashboard():
         chart_aktual = [item['aktual'] for item in data_table]
         chart_prediksi = [item['prediksi'] for item in data_table]
 
-        return render_template('dashboard/output.html',
+        # Render template based on role
+        template_name = 'dashboard/output.html' if session.get('role') == 'admin' else 'dashboard/output_user.html'
+        
+        return render_template(template_name,
                                alpha=alpha, beta=beta, mape=(round(mape, 2) if mape is not None else None),
                                data=data_table, chart_labels=chart_labels,
                                chart_aktual=chart_aktual, chart_prediksi=chart_prediksi,
@@ -583,7 +590,7 @@ def output_dashboard():
 
     if not rows:
         flash('Belum ada hasil prediksi yang dijalankan admin.', 'info')
-        return render_template('dashboard/output.html', data=[], chart_labels=[], chart_aktual=[], chart_prediksi=[], full_manual=[], alpha=None, beta=None, mape=None, option_name='Saved', user=session)
+        return render_template('dashboard/output_user.html', data=[], chart_labels=[], chart_aktual=[], chart_prediksi=[], full_manual=[], alpha=None, beta=None, mape=None, option_name='Saved', user=session)
 
     # Build data_table & charts from rows
     data_table = []
@@ -596,7 +603,7 @@ def output_dashboard():
         chart_aktual.append(r['aktual'])
         chart_prediksi.append(r['prediksi'])
 
-    return render_template('dashboard/output.html', data=data_table, chart_labels=chart_labels, chart_aktual=chart_aktual, chart_prediksi=chart_prediksi, full_manual=[], alpha=None, beta=None, mape=None, option_name='Saved', user=session)
+    return render_template('dashboard/output_user.html', data=data_table, chart_labels=chart_labels, chart_aktual=chart_aktual, chart_prediksi=chart_prediksi, full_manual=[], alpha=None, beta=None, mape=None, option_name='Saved', user=session)
 
 # ===============================
 # Data CSV
