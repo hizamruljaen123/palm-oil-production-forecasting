@@ -1,0 +1,397 @@
+{% extends 'dashboard/layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="card card-primary">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">Prediksi Jumlah Kebutuhan Air</h3>
+      <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Kembali
+      </a>
+    </div>
+
+    <form action="{{ url_for('input_dashboard') }}" method="POST" enctype="multipart/form-data" id="predictionForm">
+      <div class="card-body">
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Data Source Input (Hidden) -->
+        <input type="hidden" name="data_source" id="data_source" value="dropbox">
+
+        <!-- Nav Tabs -->
+        <ul class="nav nav-tabs nav-fill mb-4" id="uploadTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="dropbox-tab" data-bs-toggle="tab" data-bs-target="#dropbox-pane"
+              type="button" role="tab" aria-selected="true" onclick="setDataSource('dropbox')">
+              <i class="fab fa-dropbox display-6 d-block mb-2"></i>
+              Dropbox
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="server-tab" data-bs-toggle="tab" data-bs-target="#server-pane" type="button"
+              role="tab" aria-selected="false" onclick="setDataSource('server_file')">
+              <i class="fas fa-folder-open display-6 d-block mb-2"></i>
+              File Local
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="db-last-tab" data-bs-toggle="tab" data-bs-target="#db-last-pane" type="button"
+              role="tab" aria-selected="false" onclick="setDataSource('database_last')">
+              <i class="fas fa-database display-6 d-block mb-2"></i>
+              Data Terakhir
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button"
+              role="tab" aria-selected="false" onclick="setDataSource('upload')">
+              <i class="fas fa-file-upload display-6 d-block mb-2"></i>
+              Upload Manual
+            </button>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content mb-4" id="uploadTabsContent">
+
+          <!-- Dropbox Panel -->
+          <div class="tab-pane fade show active" id="dropbox-pane" role="tabpanel" aria-labelledby="dropbox-tab">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <label for="dropbox_file" class="form-label fw-bold">Pilih File dari Dropbox</label>
+                <select class="form-control" name="dropbox_file_id" id="dropbox_file">
+                  <option value="">-- Pilih File CSV --</option>
+                  {% for file in dropbox_files %}
+                  <option value="{{ file.id }}">
+                    {{ file.name }}
+                    {% if file.modifiedTime %}
+                    ({{ file.modifiedTime[:10] }})
+                    {% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if not dropbox_files %}
+                <small class="text-danger mt-2 d-block">
+                  <i class="fas fa-exclamation-circle"></i> Tidak ada file CSV ditemukan. Cek koneksi/credentials.
+                </small>
+                {% else %}
+                <small class="text-muted mt-2 d-block">
+                  <i class="fas fa-check-circle"></i> {{ dropbox_files|length }} file tersedia.
+                </small>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Server File Panel -->
+          <div class="tab-pane fade" id="server-pane" role="tabpanel" aria-labelledby="server-tab">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <label class="form-label fw-bold mb-3">Pilih File dari Folder <code>/data</code></label>
+
+                <div class="file-list-container shadow-sm border rounded bg-white">
+                  <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light sticky-top">
+                      <tr>
+                        <th style="width: 50px;">Pilih</th>
+                        <th>Nama File</th>
+                        <th>Ukuran</th>
+                        <th>Terakhir Diubah</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for file in local_files %}
+                      <tr onclick="document.getElementById('file_{{ loop.index }}').checked = true;">
+                        <td class="text-center">
+                          <input class="form-check-input" type="radio" name="server_filename" id="file_{{ loop.index }}"
+                            value="{{ file.filename }}">
+                        </td>
+                        <td>
+                          <label class="form-check-label w-100 cursor-pointer" for="file_{{ loop.index }}">
+                            <i class="fas fa-file-csv text-success me-2"></i> {{ file.filename }}
+                          </label>
+                        </td>
+                        <td class="text-muted small">{{ file.size }}</td>
+                        <td class="text-muted small">{{ file.modified }}</td>
+                      </tr>
+                      {% endfor %}
+                      {% if not local_files %}
+                      <tr>
+                        <td colspan="4" class="text-center py-4 text-muted">
+                          <i class="fas fa-folder-open fa-2x mb-2"></i>
+                          <p class="mb-0">Folder data kosong.</p>
+                        </td>
+                      </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+
+                <small class="text-info mt-2 d-block">
+                  <i class="fas fa-info-circle"></i> Klik baris untuk memilih file.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Database Last Data Panel -->
+          <div class="tab-pane fade" id="db-last-pane" role="tabpanel" aria-labelledby="db-last-tab">
+            <div class="card bg-light border-0">
+              <div class="card-body text-center py-4">
+                <i class="fas fa-database fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Gunakan Data Terakhir</h5>
+                <p class="card-text">Gunakan kembali data hasil prediksi terakhir yang tersimpan di database.</p>
+                <div class="alert alert-info d-inline-block">
+                  Sumber tabel: <code>data_upload_history</code>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Upload Panel -->
+          <div class="tab-pane fade" id="upload-pane" role="tabpanel" aria-labelledby="upload-tab">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <label for="csv_file" class="form-label fw-bold">Upload File CSV Baru</label>
+                <input type="file" class="form-control" name="file" id="csv_file" accept=".csv">
+                <div class="form-check mt-3">
+                  <input class="form-check-input" type="checkbox" value="yes" id="upload_to_dropbox"
+                    name="upload_to_dropbox">
+                  <label class="form-check-label" for="upload_to_dropbox">
+                    <i class="fab fa-dropbox"></i> Upload ke Dropbox (Cadangan)
+                  </label>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="fas fa-info-circle"></i> Format: bulan, Tahun, jumlah_produksi_air_m3
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alpha & Beta Selection (dropdown per value 0.1..0.9) -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <label for="alpha">
+              <i class="fas fa-wave-square"></i> Alpha (α)
+            </label>
+            <select class="form-control" name="alpha" id="alpha" required>
+              {% for a in alpha_options %}
+              <option value="{{ a }}" {% if a==0.5 %}selected{% endif %}>{{ a }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label for="beta">
+              <i class="fas fa-chart-line"></i> Beta (β)
+            </label>
+            <select class="form-control" name="beta" id="beta" required>
+              {% for b in beta_options %}
+              <option value="{{ b }}" {% if b==0.3 %}selected{% endif %}>{{ b }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Parameter Info Cards -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card bg-light">
+              <div class="card-body">
+                <h6 class="card-title">
+                  <i class="fas fa-info-circle text-primary"></i> Alpha (α)
+                </h6>
+                <p class="card-text small mb-0" id="alpha_value">
+                  Nilai: <strong>0.5</strong>
+                </p>
+                <p class="card-text small text-muted">
+                  Mengontrol responsivitas terhadap data terbaru
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card bg-light">
+              <div class="card-body">
+                <h6 class="card-title">
+                  <i class="fas fa-info-circle text-success"></i> Beta (β)
+                </h6>
+                <p class="card-text small mb-0" id="beta_value">
+                  Nilai: <strong>0.3</strong>
+                </p>
+                <p class="card-text small text-muted">
+                  Mengontrol responsivitas terhadap tren
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Years Prediction -->
+        <div class="form-group mb-3">
+          <label for="years">
+            <i class="fas fa-calendar-alt"></i> Tahun Prediksi
+          </label>
+          <select class="form-control" name="years" id="years" required>
+            <option value="1">1 Tahun</option>
+            <option value="2" selected>2 Tahun</option>
+            <option value="3">3 Tahun</option>
+            <option value="4">4 Tahun</option>
+            <option value="5">5 Tahun</option>
+          </select>
+        </div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="recursive" name="recursive" value="1">
+          <label class="form-check-label" for="recursive">
+            Gunakan prediksi sebelumnya untuk memperbarui level & tren (iteratif)
+          </label>
+        </div>
+      </div>
+
+      <div class="card-footer d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-chart-line"></i> Proses Prediksi
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Update alpha/beta value cards when dropdowns change
+  function updateAlphaBetaCards() {
+    const a = document.getElementById('alpha').value;
+    const b = document.getElementById('beta').value;
+    document.getElementById('alpha_value').innerHTML = 'Nilai: <strong>' + a + '</strong>';
+    document.getElementById('beta_value').innerHTML = 'Nilai: <strong>' + b + '</strong>';
+  }
+
+  document.getElementById('alpha').addEventListener('change', updateAlphaBetaCards);
+  document.getElementById('beta').addEventListener('change', updateAlphaBetaCards);
+  // initial
+  updateAlphaBetaCards();
+
+  // Function to set data source and handle required fields
+  function setDataSource(source) {
+    document.getElementById('data_source').value = source;
+
+    // Reset all required
+    document.getElementById('dropbox_file').required = false;
+    // Server filename is radio, handle manual valid
+    if (document.getElementById('csv_file')) document.getElementById('csv_file').required = false;
+
+    // Set active required
+    if (source === 'dropbox') {
+      document.getElementById('dropbox_file').required = true;
+    } else if (source === 'upload') {
+      document.getElementById('csv_file').required = true;
+    }
+  }
+
+  // Initialize required state (default dropbox)
+  setDataSource('dropbox');
+
+  // Form validation - minimalist
+  document.getElementById('predictionForm').addEventListener('submit', function (e) {
+    const dataSource = document.getElementById('data_source').value;
+
+    if (dataSource === 'dropbox' && !document.getElementById('dropbox_file').value) {
+      e.preventDefault();
+      alert('Silakan pilih file dari Dropbox');
+      return false;
+    }
+
+    if (dataSource === 'server_file') {
+      const radios = document.getElementsByName('server_filename');
+      let checked = false;
+      for (let i = 0; i < radios.length; i++) {
+        if (radios[i].checked) {
+          checked = true;
+          break;
+        }
+      }
+      if (!checked) {
+        e.preventDefault();
+        alert('Silakan pilih file dari daftar File Local');
+        return false;
+      }
+    }
+
+    if (dataSource === 'upload') {
+      const uploadInput = document.getElementById('csv_file');
+      if (uploadInput && uploadInput.files.length === 0) {
+        e.preventDefault();
+        alert('Silakan upload file CSV');
+        return false;
+      }
+    }
+  });
+</script>
+
+<style>
+  .btn-check:checked+.btn-outline-primary {
+    background-color: #0d6efd;
+    color: white;
+  }
+
+  .card.bg-light {
+    border-left: 3px solid #0d6efd;
+  }
+
+  .card.bg-light:last-child {
+    border-left-color: #198754;
+  }
+
+  #option_description {
+    display: block;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #e7f3ff;
+    background: #e7f3ff;
+    border-radius: 5px;
+    color: #004085;
+  }
+
+  .file-list-container {
+    max-height: 250px;
+    overflow-y: auto;
+    /* Custom Scrollbar for better look */
+    scrollbar-width: thin;
+    scrollbar-color: #adb5bd #f1f1f1;
+  }
+
+  .file-list-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .file-list-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  .file-list-container::-webkit-scrollbar-thumb {
+    background: #adb5bd;
+    border-radius: 10px;
+  }
+
+  .cursor-pointer {
+    cursor: pointer;
+  }
+
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+</style>
+{% endblock %}

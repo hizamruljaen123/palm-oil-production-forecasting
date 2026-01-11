@@ -1,0 +1,152 @@
+{% extends 'dashboard/layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="card-title mb-0">Hasil Prediksi Kebutuhan Air</h3>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('input_dashboard') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Kembali
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Info Parameter -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Alpha</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ alpha if alpha is not none else '-' }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Beta</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ beta if beta is not none else '-' }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">MAPE</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ (mape ~ '%') if mape is not none else '-' }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rumus DES -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">Rumus Double Exponential Smoothing</div>
+        <div class="card-body">
+            <p>
+                $$ L_t = \alpha X_t + (1 - \alpha)(L_{t-1} + T_{t-1}) $$
+                $$ T_t = \beta (L_t - L_{t-1}) + (1 - \beta)T_{t-1} $$
+                $$ F_{t+m} = L_t + m T_t $$
+            </p>
+        </div>
+    </div>
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Grafik -->
+    <div class="card mb-4">
+        <div class="card-header">Grafik Hasil Prediksi vs Aktual</div>
+        <div class="card-body">
+            <canvas id="chartPrediksi"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabel -->
+    <div class="card mb-5">
+        <div class="card-header">Tabel Hasil Prediksi Lengkap</div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>No</th>
+                        <th>Bulan</th>
+                        <th>Aktual</th>
+                        <th>Smoothed</th>
+                        <th>Prediksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(data|length) %}
+                    <tr>
+                        <td>{{ i + 1 }}</td>
+                        <td>{{ data[i]['periode'] }}</td>
+                        <td>{{ "{:,}".format(data[i]['aktual']) if data[i]['aktual'] is not none else '-' }}</td>
+                        <td>{{ data[i]['smoothed']|float|round(2) if data[i]['smoothed'] is not none else '-' }}</td>
+                        <td>{{ data[i]['prediksi']|float|round(2) if data[i]['prediksi'] is not none else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('chartPrediksi').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels| tojson }},
+        datasets: [
+        {
+            label: 'Aktual',
+            data: {{ chart_aktual| tojson }},
+        borderColor: 'blue',
+        fill: false,
+        tension: 0.3
+            },
+        {
+            label: 'Prediksi',
+            data: {{ chart_prediksi| tojson }},
+        borderColor: 'orange',
+        fill: false,
+        tension: 0.3
+            }
+    ]
+    },
+        options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+                callbacks: {
+                    label: function (context) {
+                        return context.dataset.label + ': ' + context.parsed.y.toLocaleString('id-ID');
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: { callback: v => v.toLocaleString("id-ID") },
+                title: { display: true, text: 'Jumlah Produksi Air (m³)' }
+            },
+            x: {
+                title: { display: true, text: 'Periode (Bulan dan Tahun)' }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
