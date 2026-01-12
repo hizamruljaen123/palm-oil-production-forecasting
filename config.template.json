@@ -1,0 +1,14 @@
+{
+    "dropbox": {
+        "app_key": "YOUR_DROPBOX_APP_KEY",
+        "app_secret": "YOUR_DROPBOX_APP_SECRET",
+        "access_token": "YOUR_DROPBOX_ACCESS_TOKEN"
+    },
+    "google_drive": {
+        "enabled": true,
+        "credentials_json": "path/to/credentials.json",
+        "scopes": [
+            "https://www.googleapis.com/auth/drive.readonly"
+        ]
+    }
+}

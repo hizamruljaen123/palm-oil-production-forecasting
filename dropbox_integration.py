@@ -1,19 +1,23 @@
 import dropbox
 import pandas as pd
 import io
-
-# Konfigurasi Dropbox
-APP_KEY = 'vm03f7eq8mbwt2g'
-APP_SECRET = 'm6t6wlnss3sru2e'
-ACCESS_TOKEN = 'sl.u.AGNBt_D8sFw3O0k93ey7blxUwEgmmmOuEWuJehGJWRO_jxl42o7uIQKH7Y8SjPVWVvUQ4GewOVOKZzFOlgGfL_rEJoR5eSUdBKmGJWrwBKTUJAUA83Zj7H4Eo19AwadiITwXDUaquxf6kvUA8ICk5jVa03u5C4499uqQAqqdsIe4wqXzXxR84IuZq-tj0N1EKeLAWZdbNnwM6C5b460j5eeYR3Pt7x65KnAYAZu8ZVqlzGHFr4xIJPwkTxKZFXtveBkb4n4KZi79_ESgtgC6Q2862dt-tdeLFHQeYkFG4sJ4h7j7baiROJ4u3vojhnYhavTmpq0Mq2A9w9ib44Bl8hfolv0T5hAJXin2wVcZ2_q9J_501vy4LuYM-D0mp1rw9vKPI8QKw4GUuaxtq8lggek3UmE-9Rxgp6xEUAzQ9n8B70AF6cNdF6qjfhj9BAuNIz0rsWWTdQ_nMtHrMv2dKeoGRefZdSrAo6DavoG7fzBbyhe8ilguMw4_T7Vc-f75InXbGG_-h1ZodI1dq6nYRl4_ein8IOBHcpNqx6i3HSMonepox9YhbJgxhekBeyX3DRS8T4o0d1ydN-FMPet7L--gFltkrwy-GdrS6998w7GaMTt0oVqL0tqhgOJ3uWrarANGTUOkl69zlzMP9ZdfO6U6iPbybBMW4LtpnlNtW9jm2F6-GtEOrW0pj0ID8GCYyHoxelZwyjEnbUSB6-1xBOc44Csswv5sm-SiCfpEGRmsA8pcHOVjfwIkL2qvqt1uGA7MueTfwh95rWm-EWje7-GIoCx4nGiy6606a1J3iu-wXujbqL_SpwNHur1FLZ5Vsdr2C88Z5V88MqbMPjYnAPUQcoeCDH1S727J-lAV1YAGvTelS_mQDKVqSojyWNYVD2O4eKuzGxDHsb0Q-Bqvi6ksDzGOEHrDxYK4a7tZHYAgLU176pvF16ujNBNd6BDfFKxvtWV84lql48FBgvA7zFlxd70W7V2m508uKS0jF-rlYsKV3GerA0-3agwGEr3S0eSAV6JTCnKKh-ETAaeJcunS2oZ4JBHPM7YIgy4JsHGn7f2jyCuAGLAsKhB_71OFH0aDxFaeOGU9F3ZjwduEzHhTDpO2XTFy48w4HH4DXqY-Bed8WYHjtcGc5sb8LglH71Cg9haVKEMTjD5DgyHHaFu7D4JMcvu81KGg7li_2Nz8ecgwidGVOhdtEMSrgcroVPH-bUt7XIZBQJEPlBLQrjharR-_u-gQkaSmH74W68yEsD8HcK0wo35Q0miSULG91NhJZSqi9tHOXbsWZArz0H4wk2oxayHlRNSL8YhZ1SGvmritiDGBp9dd9yygQfDLC89VbpeCILPt-3e1fK2mM0rwfIA1yEgKSLJPKWQIeBaNeVS6kuRUfIHZWjLY09P4izQYqvPcVwMtatjxwE-oZ15Brp88Qpt5c3JljU6pLyvo5w'
+from utils.config_loader import get_dropbox_config
 
 def get_dropbox_client():
     """Membuat koneksi ke Dropbox."""
+    config = get_dropbox_config()
+    ACCESS_TOKEN = config.get('access_token')
+    
+    if not ACCESS_TOKEN:
+        print("Dropbox Access Token not found in config.")
+        return None
+        
     try:
         dbx = dropbox.Dropbox(ACCESS_TOKEN)
         return dbx
     except Exception as e:
         print(f"Error connecting to Dropbox: {e}")
+        return None
         return None
 
 def list_csv_files_from_dropbox(folder_path=''):

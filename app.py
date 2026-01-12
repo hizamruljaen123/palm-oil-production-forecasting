@@ -7,8 +7,13 @@ from pathlib import Path
 import numpy as np
 from werkzeug.utils import secure_filename
 import uuid
+
+# Development only: Allow OAuth over HTTP
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 from auth import login_required, admin_required, verify_user, create_user
 from dropbox_integration import list_csv_files_from_dropbox, download_csv_from_dropbox, get_file_info_dropbox, upload_file_to_dropbox, check_dropbox_connection
+from google_drive_integration import list_csv_files_from_google_drive, download_csv_from_google_drive, get_file_info_google_drive, check_google_drive_connection, create_flow
+from utils.config_loader import get_google_drive_config, get_dropbox_config
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'  # Ganti dengan secret key yang aman
@@ -218,6 +223,22 @@ def input_dashboard():
                 flash(f'Gagal mengunduh file dari Dropbox: {e}', 'danger')
                 return redirect(url_for('input_dashboard'))
 
+        elif data_source == 'google_drive':
+            # Google Drive file
+            file_id = request.form.get('google_drive_file_id')
+            if not file_id:
+                flash('Silakan pilih file dari Google Drive.', 'warning')
+                return redirect(url_for('input_dashboard'))
+            
+            try:
+                google_creds = session.get('google_credentials')
+                df = download_csv_from_google_drive(file_id, google_creds)
+                file_info = get_file_info_google_drive(file_id, google_creds)
+                filename_to_save = file_info['name'] if file_info else 'google_drive_file.csv'
+            except Exception as e:
+                flash(f'Gagal mengunduh file dari Google Drive: {e}', 'danger')
+                return redirect(url_for('input_dashboard'))
+
         elif data_source == 'server_file':
             # File from server 'data' folder
             stored_filename = request.form.get('server_filename')
@@ -369,6 +390,24 @@ def input_dashboard():
     else:
         flash('Gagal terhubung ke Dropbox. Cek koneksi internet atau token API.', 'warning')
 
+    # Google Drive Files
+    google_drive_files = []
+    # Grab credentials from session if available
+    google_creds = session.get('google_credentials')
+    google_drive_connected = check_google_drive_connection(google_creds)
+    
+    if google_drive_connected:
+        try:
+            google_drive_files = list_csv_files_from_google_drive(google_creds)
+            if not dropbox_connected and google_creds: 
+                 flash('Terhubung ke Google Drive.', 'success')
+        except Exception as e:
+            print(f"Error listing Google Drive files: {e}")
+            # If listing fails (e.g. token expired/revoked), clear session and update status
+            session.pop('google_credentials', None)
+            google_drive_connected = False
+
+
     # Fetch Local Files
     local_files = []
     try:
@@ -390,8 +429,10 @@ def input_dashboard():
                          alpha_options=ALPHA_OPTIONS,
                          beta_options=BETA_OPTIONS,
                          dropbox_files=dropbox_files,
+                         google_drive_files=google_drive_files,
                          local_files=local_files,
                          dropbox_connected=dropbox_connected,
+                         google_drive_connected=google_drive_connected,
                          user=session)
 
 
@@ -661,6 +702,72 @@ def delete_file(stored_filename):
     except Exception:
         pass
     return redirect(url_for('data_dashboard'))
+
+# ===============================
+# Google Drive Auth
+# ===============================
+@app.route('/authorize_drive')
+@admin_required
+def authorize_drive():
+    try:
+        # Check if redirect_uri is in config
+        config = get_google_drive_config()
+        redirect_uri = config.get('redirect_uri')
+        if not redirect_uri:
+            # Fallback to auto-detection (often causes mismatch if not careful)
+            redirect_uri = url_for('oauth2callback', _external=True)
+            
+        print(f"DEBUG: Using redirect_uri: {redirect_uri}")
+
+        # Create flow instance to manage the OAuth 2.0 Authorization Grant Flow steps
+        flow = create_flow(redirect_uri)
+        
+        # The URI created here must exactly match one of the authorized redirect URIs
+        # for the OAuth 2.0 Client, which you configured in the API Console.
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true')
+            
+        # Store the state so the callback can verify the auth server response.
+        session['state'] = state
+        
+        return redirect(authorization_url)
+    except Exception as e:
+        flash(f'Error starting authorization flow: {e}', 'danger')
+        return redirect(url_for('input_dashboard'))
+
+@app.route('/oauth2callback')
+def oauth2callback():
+    state = session.get('state')
+    
+    try:
+        # Check if redirect_uri is in config
+        config = get_google_drive_config()
+        redirect_uri = config.get('redirect_uri')
+        if not redirect_uri:
+             redirect_uri = url_for('oauth2callback', _external=True)
+
+        flow = create_flow(redirect_uri)
+        flow.fetch_token(authorization_response=request.url)
+        
+        # Store credentials in the session
+        creds = flow.credentials
+        session['google_credentials'] = {
+            'token': creds.token,
+            'refresh_token': creds.refresh_token,
+            'token_uri': creds.token_uri,
+            'client_id': creds.client_id,
+            'client_secret': creds.client_secret,
+            'scopes': creds.scopes
+        }
+        
+        flash('Berhasil terhubung ke Google Drive!', 'success')
+    except Exception as e:
+         # Print error to console for easier debugging
+         print(f"OAuth Callback Error: {e}")
+         flash(f'Gagal otorisasi Google Drive: {e}', 'danger')
+         
+    return redirect(url_for('input_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)

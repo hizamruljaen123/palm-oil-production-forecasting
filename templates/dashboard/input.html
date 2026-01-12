@@ -38,6 +38,13 @@
             </button>
           </li>
           <li class="nav-item" role="presentation">
+            <button class="nav-link" id="google-drive-tab" data-bs-toggle="tab" data-bs-target="#google-drive-pane"
+              type="button" role="tab" aria-selected="false" onclick="setDataSource('google_drive')">
+              <i class="fab fa-google-drive display-6 d-block mb-2"></i>
+              Google Drive
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="server-tab" data-bs-toggle="tab" data-bs-target="#server-pane" type="button"
               role="tab" aria-selected="false" onclick="setDataSource('server_file')">
               <i class="fas fa-folder-open display-6 d-block mb-2"></i>
@@ -92,7 +99,45 @@
             </div>
           </div>
 
-          <!-- Server File Panel -->
+
+
+          <!-- Google Drive Panel -->
+          <div class="tab-pane fade" id="google-drive-pane" role="tabpanel" aria-labelledby="google-drive-tab">
+            <div class="card bg-light border-0">
+              <div class="card-body">
+                <label for="google_drive_file" class="form-label fw-bold">Pilih File dari Google Drive</label>
+                <select class="form-control" name="google_drive_file_id" id="google_drive_file">
+                  <option value="">-- Pilih File CSV --</option>
+                  {% for file in google_drive_files %}
+                  <option value="{{ file.id }}">
+                    {{ file.name }}
+                    {% if file.modifiedTime %}
+                    ({{ file.modifiedTime[:10] }})
+                    {% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if not google_drive_connected %}
+                <div class="mt-3 text-center">
+                  <p class="text-muted">Anda belum terhubung ke Google Drive.</p>
+                  <a href="{{ url_for('authorize_drive') }}" class="btn btn-outline-danger">
+                    <i class="fab fa-google-drive"></i> Hubungkan Google Drive
+                  </a>
+                </div>
+                {% else %}
+                {% if not google_drive_files %}
+                <small class="text-danger mt-2 d-block">
+                  <i class="fas fa-exclamation-circle"></i> Tidak ada file CSV ditemukan.
+                </small>
+                {% else %}
+                <small class="text-muted mt-2 d-block">
+                  <i class="fas fa-check-circle"></i> {{ google_drive_files|length }} file tersedia.
+                </small>
+                {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </div>
           <div class="tab-pane fade" id="server-pane" role="tabpanel" aria-labelledby="server-tab">
             <div class="card bg-light border-0">
               <div class="card-body">
@@ -287,12 +332,15 @@
 
     // Reset all required
     document.getElementById('dropbox_file').required = false;
+    document.getElementById('google_drive_file').required = false;
     // Server filename is radio, handle manual valid
     if (document.getElementById('csv_file')) document.getElementById('csv_file').required = false;
 
     // Set active required
     if (source === 'dropbox') {
       document.getElementById('dropbox_file').required = true;
+    } else if (source === 'google_drive') {
+      document.getElementById('google_drive_file').required = true;
     } else if (source === 'upload') {
       document.getElementById('csv_file').required = true;
     }
@@ -308,6 +356,12 @@
     if (dataSource === 'dropbox' && !document.getElementById('dropbox_file').value) {
       e.preventDefault();
       alert('Silakan pilih file dari Dropbox');
+      return false;
+    }
+
+    if (dataSource === 'google_drive' && !document.getElementById('google_drive_file').value) {
+      e.preventDefault();
+      alert('Silakan pilih file dari Google Drive');
       return false;
     }
 
